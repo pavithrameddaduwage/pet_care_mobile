@@ -95,10 +95,10 @@ exports.updateRescue = async (req, res) => {
       runValidators: true
     });
 
-    console.log('✅ Rescue case updated:', rescue._id);
+    console.log('Rescue case updated:', rescue._id);
     res.status(200).json({ success: true, data: rescue });
   } catch (err) {
-    console.error('❌ Error updating rescue:', err.message);
+    console.error('Error updating rescue:', err.message);
     const errorMessage = err.errors 
       ? Object.values(err.errors).map(e => e.message).join(', ')
       : err.message;
