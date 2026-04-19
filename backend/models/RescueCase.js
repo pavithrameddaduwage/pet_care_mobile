@@ -35,7 +35,23 @@ const rescueCaseSchema = new mongoose.Schema({
   imageUrl: {
     type: String,
     required: [true, 'Please provide an image']
-  }
+  },
+  comments: [
+    {
+      text: {
+        type: String,
+        required: true
+      },
+      author: {
+        type: String,
+        default: 'Volunteer'
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ]
 }, {
   timestamps: true
 });

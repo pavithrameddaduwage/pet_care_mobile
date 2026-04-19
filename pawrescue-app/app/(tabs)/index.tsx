@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { getRescues, deleteRescue, IMAGE_BASE_URL } from '@/services/api';
 import { CustomAlert } from '@/components/ui/CustomAlert';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -48,6 +48,14 @@ export default function RescuesScreen() {
       setRefreshing(false);
     }
   };
+
+  // Auto-refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchRescues();
+    }, [])
+  );
 
   useEffect(() => {
     fetchRescues();
@@ -171,7 +179,12 @@ export default function RescuesScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerSubtitle}>Welcome to</Text>
-          <Text style={styles.headerTitle}>PawRescue</Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>PawRescue</Text>
+            <View style={styles.caseBadge}>
+              <Text style={styles.caseBadgeText}>{rescues.length}</Text>
+            </View>
+          </View>
         </View>
         <TouchableOpacity 
           style={styles.profileButton}
@@ -241,26 +254,52 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   header: {
-    paddingTop: 60,
+    paddingTop: 62,
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
   headerTitle: {
-    fontSize: 38,
+    fontSize: 42,
     fontWeight: '900',
     color: Colors.light.text,
-    letterSpacing: -1.5,
+    letterSpacing: -1.8,
     marginTop: -4,
   },
+  caseBadge: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 40,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  caseBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.light.primary,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
+    marginBottom: 2,
   },
   profileButton: {
     marginBottom: 4,
@@ -273,21 +312,20 @@ const styles = StyleSheet.create({
   cardContainer: {
     marginBottom: Spacing.xl,
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 12,
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 28,
+    borderRadius: 32,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#EBF8FF',
+    borderWidth: 0,
   },
   imageWrapper: {
     width: '100%',
-    height: 200,
+    height: 220,
     position: 'relative',
     backgroundColor: '#F0F9FF',
   },
@@ -300,49 +338,51 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 14,
-    ...Shadows.soft,
+    top: 14,
+    right: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 18,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   cardContent: {
-    padding: 18,
+    padding: 22,
   },
   title: {
-    fontSize: 21,
+    fontSize: 23,
     fontWeight: '900',
     color: Colors.light.text,
-    marginBottom: 10,
-    letterSpacing: -0.5,
+    marginBottom: 14,
+    letterSpacing: -0.6,
+    lineHeight: 28,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
     flexWrap: 'wrap',
+    gap: 10,
   },
   metaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBF8FF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-    marginRight: 10,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: '#D0E9FF',
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
   },
   metaEmoji: {
     fontSize: 13,
@@ -355,92 +395,110 @@ const styles = StyleSheet.create({
     maxWidth: width * 0.3,
   },
   description: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#64748B',
-    lineHeight: 21,
-    marginBottom: 16,
+    lineHeight: 23,
+    marginBottom: 18,
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#EBF8FF',
-    paddingTop: 14,
+    borderTopWidth: 1.5,
+    borderTopColor: '#F0F4F8',
+    paddingTop: 16,
+    marginTop: 4,
   },
   dateText: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 13,
+    color: '#A0AEC0',
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   readMore: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   readMoreText: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.light.primary,
     fontWeight: '800',
-    marginRight: 4,
+    marginRight: 5,
+    letterSpacing: 0.2,
   },
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   cardDeleteButton: {
-    padding: 8,
+    padding: 10,
     backgroundColor: '#FEE2E2',
-    borderRadius: 50,
-    marginRight: 8,
+    borderRadius: 12,
+    marginRight: 10,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 80,
+    marginTop: 100,
     paddingHorizontal: 40,
   },
   emptyIconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#EBF8FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 6,
   },
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '900',
     color: Colors.light.text,
-    marginBottom: 12,
+    marginBottom: 14,
+    letterSpacing: -0.6,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#718096',
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
+    lineHeight: 26,
+    marginBottom: 36,
+    fontWeight: '500',
   },
   reportButton: {
     width: '100%',
-    borderRadius: 99,
+    borderRadius: 18,
     overflow: 'hidden',
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
   },
   reportButtonGradient: {
     paddingVertical: 18,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   reportButtonText: {
     color: '#fff',
-    fontWeight: '800',
+    fontWeight: '900',
     fontSize: 18,
+    letterSpacing: 0.4,
   },
 });

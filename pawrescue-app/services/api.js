@@ -29,4 +29,11 @@ export const updateRescue = (id, data, config) => {
 };
 export const deleteRescue = (id) => api.delete(`/rescues/${id}`);
 
+// Comment endpoints
+export const addComment = (rescueId, text, author = 'Volunteer') => 
+  api.post(`/rescues/${rescueId}/comments`, { text, author });
+
+export const deleteComment = (rescueId, commentId) =>
+  api.delete(`/rescues/${rescueId}/comments/${commentId}`);
+
 export default api;

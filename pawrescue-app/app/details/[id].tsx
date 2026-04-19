@@ -11,12 +11,14 @@ import {
   Dimensions,
   ActionSheetIOS,
   Platform,
-  StatusBar
+  StatusBar,
+  TextInput,
+  KeyboardAvoidingView
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import MapView, { Marker } from '@/components/MapView';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getRescue, updateRescue, deleteRescue, IMAGE_BASE_URL } from '@/services/api';
+import { getRescue, updateRescue, deleteRescue, IMAGE_BASE_URL, addComment, deleteComment } from '@/services/api';
 import { CustomAlert } from '@/components/ui/CustomAlert';
 import { Toast } from '@/components/ui/Toast';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -32,6 +34,8 @@ export default function CaseDetailScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
   const router = useRouter();
 
   const showAlert = (type, title, message, onConfirm = null, onCancel = null) => {
@@ -55,6 +59,12 @@ export default function CaseDetailScreen() {
   useEffect(() => {
     fetchRescueDetail();
   }, [id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchRescueDetail();
+    }, [id])
+  );
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -138,6 +148,47 @@ export default function CaseDetailScreen() {
       () => { hideAlert(); executeDelete(); },
       hideAlert
     );
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim()) {
+      setToastMessage('Please enter a comment');
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    try {
+      setSubmittingComment(true);
+      const response = await addComment(id, commentText.trim(), 'Volunteer');
+      setRescue(response.data.data);
+      setCommentText('');
+      setToastMessage('Comment added successfully! ✅');
+      setToastType('success');
+      setToastVisible(true);
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      setToastMessage('Failed to add comment. Please try again.');
+      setToastType('error');
+      setToastVisible(true);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      const response = await deleteComment(id, commentId);
+      setRescue(response.data.data);
+      setToastMessage('Comment deleted ✅');
+      setToastType('success');
+      setToastVisible(true);
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      setToastMessage('Failed to delete comment.');
+      setToastType('error');
+      setToastVisible(true);
+    }
   };
 
   if (loading && !rescue) {
@@ -238,6 +289,72 @@ export default function CaseDetailScreen() {
               <Text style={styles.noMapText}>No precise location coordinates provided.</Text>
             </View>
           )}
+
+          <Text style={styles.sectionTitle}>Updates & Comments</Text>
+          <View style={styles.commentsSection}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              <View style={styles.commentInputContainer}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Add an update or comment..."
+                  placeholderTextColor="#A0AEC0"
+                  multiline
+                  numberOfLines={3}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  editable={!submittingComment}
+                />
+                <TouchableOpacity 
+                  style={[styles.submitCommentButton, submittingComment && styles.disabledButton]}
+                  onPress={handleAddComment}
+                  disabled={submittingComment}
+                >
+                  {submittingComment ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <IconSymbol name="paperplane.fill" size={16} color="#fff" />
+                      <Text style={styles.submitCommentText}>Post</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.commentsList}>
+                {rescue.comments && rescue.comments.length > 0 ? (
+                  rescue.comments.map((comment, index) => (
+                    <View key={index} style={styles.commentItem}>
+                      <View style={styles.commentHeader}>
+                        <View>
+                          <Text style={styles.commentAuthor}>{comment.author}</Text>
+                          <Text style={styles.commentTime}>
+                            {new Date(comment.createdAt).toLocaleDateString(undefined, { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </Text>
+                        </View>
+                        <TouchableOpacity 
+                          style={styles.deleteCommentButton}
+                          onPress={() => handleDeleteComment(comment._id)}
+                        >
+                          <IconSymbol name="trash.fill" size={14} color={Colors.light.danger} />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.commentText}>{comment.text}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.noComments}>
+                    <IconSymbol name="bubble.right" size={28} color="#CBD5E0" />
+                    <Text style={styles.noCommentsText}>No updates yet. Be the first to comment!</Text>
+                  </View>
+                )}
+              </View>
+            </KeyboardAvoidingView>
+          </View>
 
           <View style={styles.actions}>
             {rescue.status !== 'Resolved' && (
@@ -542,5 +659,104 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  commentsSection: {
+    marginBottom: 28,
+    marginTop: 12,
+  },
+  commentInputContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 18,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  commentInput: {
+    fontSize: 14,
+    color: Colors.light.text,
+    marginBottom: 12,
+    paddingVertical: 4,
+    minHeight: 80,
+    fontWeight: '500',
+  },
+  submitCommentButton: {
+    backgroundColor: Colors.light.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  submitCommentText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  commentsList: {
+    gap: 12,
+  },
+  commentItem: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.primary,
+    marginBottom: 10,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  commentAuthor: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: '#A0AEC0',
+    fontWeight: '500',
+  },
+  deleteCommentButton: {
+    padding: 6,
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#64748B',
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+  noComments: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    gap: 10,
+  },
+  noCommentsText: {
+    color: '#A0AEC0',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

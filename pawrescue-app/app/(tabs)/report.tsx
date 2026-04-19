@@ -33,12 +33,13 @@ export default function ReportScreen() {
     incidentDate: '',
   });
   const [errors, setErrors] = useState<any>({});
-  const [image, setImage] = useState(null);
+  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -82,14 +83,14 @@ export default function ReportScreen() {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData({ ...formData, [field]: value });
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
     }
   };
 
-  const handleMapPress = (e) => {
+  const handleMapPress = (e: any) => {
     setMarkerCoords(e.nativeEvent.coordinate);
   };
 
@@ -127,36 +128,40 @@ export default function ReportScreen() {
       postData.append('coordinates', JSON.stringify(markerCoords));
     }
 
-    if (Platform.OS === 'web') {
-      try {
-        const response = await fetch(image.uri);
-        const blob = await response.blob();
-        postData.append('image', blob, 'upload.jpg');
-      } catch (err) {
-        console.error('Failed to fetch blob for image:', err);
+    if (image) {
+      if (Platform.OS === 'web') {
+        try {
+          const response = await fetch(image.uri);
+          const blob = await response.blob();
+          postData.append('image', blob, 'upload.jpg');
+        } catch (err) {
+          console.error('Failed to fetch blob for image:', err);
+        }
+      } else {
+        const filename = image.uri.split('/').pop();
+        const match = /\.(\.w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+        
+        postData.append('image', {
+          uri: image.uri,
+          name: filename || 'upload.jpg',
+          type: type,
+        } as any);
       }
-    } else {
-      const filename = image.uri.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename || '');
-      const type = match ? `image/${match[1]}` : `image`;
-      
-      postData.append('image', {
-        uri: image.uri,
-        name: filename || 'upload.jpg',
-        type: type,
-      } as any);
     }
 
     try {
       const response = await createRescue(postData);
       console.log('Rescue case created successfully:', response.data);
-      setToastMessage('Case added successfully! 🎉');
-      setToastType('success');
-      setToastVisible(true);
       
+      // Show success modal with confirmation
+      setShowSuccessModal(true);
+      
+      // Navigate after 3 seconds
       setTimeout(() => {
+        setShowSuccessModal(false);
         router.replace('/');
-      }, 2000);
+      }, 3000);
     } catch (error: any) {
       console.error('❌ Error reporting case:', error);
       console.error('Error response:', error.response?.data);
@@ -178,7 +183,7 @@ export default function ReportScreen() {
     }
   };
 
-  const renderInput = (label: string, field: string, placeholder: string, iconName: any, multiline = false) => (
+  const renderInput = (label: string, field: keyof typeof formData, placeholder: string, iconName: any, multiline = false) => (
     <View style={styles.inputContainer}>
       <Text style={[styles.label, errors[field] && styles.errorLabel]}>{label}</Text>
       <View style={[styles.inputWrapper, errors[field] && styles.errorInputWrapper]}>
@@ -275,7 +280,7 @@ export default function ReportScreen() {
               onPress={pickImage}
               activeOpacity={0.7}
             >
-              {image ? (
+              {image && image.uri ? (
                 <View style={styles.imagePreviewContainer}>
                   <Image source={{ uri: image.uri }} style={styles.previewImage} resizeMode="cover" />
                   <View style={styles.imageOverlay}>
@@ -337,8 +342,6 @@ export default function ReportScreen() {
                   date={selectedDate}
                   onDateChange={setSelectedDate}
                   mode="datetime"
-                  textColor={Colors.light.text}
-                  fadeToColor={Colors.light.background}
                   maximumDate={new Date()}
                 />
               </View>
@@ -374,6 +377,36 @@ export default function ReportScreen() {
         duration={2500}
         onHide={() => setToastVisible(false)}
       />
+
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <BlurView intensity={90} style={styles.blurContainer}>
+          <View style={styles.successModalContainer}>
+            <View style={styles.successModalContent}>
+              <View style={styles.successIconContainer}>
+                <Text style={styles.successIcon}>✓</Text>
+              </View>
+              <Text style={styles.successTitle}>Case Reported Successfully!</Text>
+              <Text style={styles.successMessage}>
+                Your rescue case has been added to the dashboard. Our volunteers will help shortly.
+              </Text>
+              <View style={styles.loadingBar}>
+                <LinearGradient
+                  colors={[Colors.light.primary, '#1d4ed8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.loadingBarFill}
+                />
+              </View>
+              <Text style={styles.redirectingText}>Redirecting to dashboard...</Text>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
     </View>
   );
 }
@@ -422,35 +455,35 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     backgroundColor: Colors.light.cardBackground,
     padding: Spacing.md,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#EBF8FF',
+    borderRadius: 28,
+    borderWidth: 0,
+    overflow: 'hidden',
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
     color: Colors.light.text,
-    marginBottom: 18,
-    borderLeftWidth: 5,
+    marginBottom: 22,
+    borderLeftWidth: 6,
     borderLeftColor: Colors.light.primary,
-    paddingLeft: 14,
-    letterSpacing: -0.5,
+    paddingLeft: 16,
+    letterSpacing: -0.6,
   },
   inputContainer: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#2D3748',
-    marginBottom: 10,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1E293B',
+    marginBottom: 12,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   errorLabel: {
     color: Colors.light.danger,
@@ -458,12 +491,17 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   errorInputWrapper: {
     borderColor: Colors.light.danger,
@@ -518,13 +556,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   imagePicker: {
-    marginTop: 8,
-    height: 240,
-    borderRadius: 20,
-    backgroundColor: '#F0F9FF',
+    marginTop: 12,
+    height: 260,
+    borderRadius: 24,
+    backgroundColor: 'linear-gradient(135deg, #F0F9FF 0%, #F5F3FF 100%)',
     borderStyle: 'dashed',
-    borderWidth: 2,
-    borderColor: '#3182CE',
+    borderWidth: 2.5,
+    borderColor: Colors.light.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -560,57 +598,59 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     alignItems: 'center',
-    padding: 20,
+    padding: 22,
   },
   plusIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 18,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  imagePlaceholderTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: Colors.light.text,
-    marginBottom: 6,
-    letterSpacing: -0.3,
-  },
-  imagePlaceholderSubtitle: {
-    fontSize: 13,
-    color: '#8B5CF6',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  submitButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
+    marginBottom: 20,
     shadowColor: Colors.light.primary,
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
     elevation: 8,
-    marginTop: 20,
+  },
+  imagePlaceholderTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: Colors.light.text,
+    marginBottom: 8,
+    letterSpacing: -0.4,
+  },
+  imagePlaceholderSubtitle: {
+    fontSize: 14,
+    color: Colors.light.primary,
+    textAlign: 'center',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  submitButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 28,
+    elevation: 12,
+    marginTop: 28,
     marginBottom: 40,
   },
   submitGradient: {
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 28,
     alignItems: 'center',
-    minHeight: 58,
+    justifyContent: 'center',
+    minHeight: 62,
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   disabledButton: {
     opacity: 0.7,
@@ -618,13 +658,18 @@ const styles = StyleSheet.create({
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 14,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   datePickerContent: {
     flex: 1,
@@ -707,6 +752,82 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '800',
+  },
+  blurContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContainer: {
+    width: '85%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 40,
+    paddingVertical: 54,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.28,
+    shadowRadius: 36,
+    elevation: 14,
+  },
+  successIconContainer: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 28,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  successIcon: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: '#059669',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: Colors.light.text,
+    marginBottom: 14,
+    textAlign: 'center',
+    letterSpacing: -0.6,
+    lineHeight: 30,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#718096',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+  loadingBar: {
+    width: '100%',
+    height: 5,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+  loadingBarFill: {
+    height: '100%',
+    width: '100%',
+  },
+  redirectingText: {
+    fontSize: 14,
+    color: '#A0AEC0',
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
 });
 

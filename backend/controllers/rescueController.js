@@ -129,3 +129,49 @@ exports.deleteRescue = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// @desc    Add comment to rescue case
+// @route   POST /api/rescues/:id/comments
+exports.addComment = async (req, res) => {
+  try {
+    const { text, author } = req.body;
+
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ success: false, error: 'Comment cannot be empty' });
+    }
+
+    const rescue = await RescueCase.findById(req.params.id);
+    if (!rescue) {
+      return res.status(404).json({ success: false, error: 'Rescue case not found' });
+    }
+
+    rescue.comments.push({
+      text: text.trim(),
+      author: author || 'Volunteer',
+      createdAt: new Date()
+    });
+
+    await rescue.save();
+    res.status(201).json({ success: true, data: rescue });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @desc    Delete comment from rescue case
+// @route   DELETE /api/rescues/:id/comments/:commentId
+exports.deleteComment = async (req, res) => {
+  try {
+    const rescue = await RescueCase.findById(req.params.id);
+    if (!rescue) {
+      return res.status(404).json({ success: false, error: 'Rescue case not found' });
+    }
+
+    rescue.comments = rescue.comments.filter(c => c._id.toString() !== req.params.commentId);
+    await rescue.save();
+
+    res.status(200).json({ success: true, data: rescue });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

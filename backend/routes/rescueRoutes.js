@@ -7,7 +7,9 @@ const {
   getRescue,
   createRescue,
   updateRescue,
-  deleteRescue
+  deleteRescue,
+  addComment,
+  deleteComment
 } = require('../controllers/rescueController');
 
 // Multer Config
@@ -31,5 +33,12 @@ router.route('/:id')
   .get(getRescue)
   .put(upload.single('image'), updateRescue)
   .delete(deleteRescue);
+
+// Comment routes
+router.route('/:id/comments')
+  .post(addComment);
+
+router.route('/:id/comments/:commentId')
+  .delete(deleteComment);
 
 module.exports = router;
